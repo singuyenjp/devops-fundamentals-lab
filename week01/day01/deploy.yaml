@@ -1,5 +1,5 @@
 app:
   name: demo
   replicas: 1
-  image: demo:v1
+  image: demo:v2
   port: 8080
