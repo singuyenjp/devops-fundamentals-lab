@@ -1,0 +1,24 @@
+replicaCount: 1
+image:
+  repository: day06-app
+  tag: ""
+containerPort: 8080
+service:
+  port: 80
+env: {}
+readinessProbe:
+  httpGet:
+    path: /
+    port: 8080
+  periodSeconds: 5
+livenessProbe:
+  httpGet:
+    path: /
+    port: 8080
+  periodSeconds: 10
+startupProbe:
+  httpGet:
+    path: /
+    port: 8080
+  failureThreshold: 10
+  periodSeconds: 2
