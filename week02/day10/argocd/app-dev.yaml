@@ -1,0 +1,25 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: argo-dev-app
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/singuyenjp/devops-fundamentals-lab.git
+    targetRevision: main
+    path: week02/day09/charts/app
+    helm:
+      releaseName: app
+      valueFiles:
+        - ../../config/environments/dev/values.yaml
+        - ../../config/environments/dev/releases.yaml
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: argo-dev
+  syncPolicy:
+    syncOptions:
+      - CreateNamespace=true
+    automated:
+      prune: true
+      selfHeal: true
