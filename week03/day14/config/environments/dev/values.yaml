@@ -1,7 +1,3 @@
 replicaCount: 1
-readinessProbe:
-  httpGet:
-    path: /
-    port: 9999
 env:
   GREETING: "hello from dev"
