@@ -1,0 +1,58 @@
+name: day17-sync
+
+# Lab ngày 17: mô phỏng bước sync của ArgoCD (render chart -> apply -> chờ healthy)
+# trên cluster kind tạm, để luyện trace OutOfSync/SyncFailed xuống resource/event.
+# Chỉ chạy trên branch lab, không chạy trên main.
+on:
+  push:
+    branches: [feature/day17-gitops-sync]
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    env:
+      CFG: week03/day17/config/dev
+      NS: sync-dev
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Create kind cluster
+        run: kind create cluster --name sync --wait 120s
+
+      - name: Render chart (helm template)
+        run: |
+          helm template app week02/day09/charts/app -n "$NS" \
+            -f "$CFG/values.yaml" -f "$CFG/releases.yaml" > rendered.yaml
+          grep -E 'replicas:|image:' rendered.yaml
+
+      - name: Prepare namespace and identity
+        run: |
+          source "$CFG/sync.env"
+          [ "$CREATE_NAMESPACE" = "true" ] && kubectl create namespace "$NS"
+          if [ "$SYNC_AS" = "viewer" ]; then
+            kubectl create serviceaccount viewer
+            kubectl create clusterrolebinding viewer --clusterrole=view --serviceaccount=default:viewer
+          fi
+          echo "CREATE_NAMESPACE=$CREATE_NAMESPACE SYNC_AS=$SYNC_AS"
+
+      - name: Sync (kubectl apply)
+        run: |
+          source "$CFG/sync.env"
+          AS=""
+          [ "$SYNC_AS" = "viewer" ] && AS="--as=system:serviceaccount:default:viewer"
+          kubectl apply -n "$NS" $AS -f rendered.yaml
+
+      - name: Health (rollout status)
+        run: kubectl -n "$NS" rollout status deploy/app --timeout=60s
+
+      - name: Drift demo (scale tay rồi xem diff)
+        run: |
+          kubectl -n "$NS" scale deploy/app --replicas=3
+          kubectl -n "$NS" diff -f rendered.yaml || true
+
+      - name: Diagnose
+        if: failure()
+        run: |
+          kubectl -n "$NS" get deploy,rs,pod || true
+          kubectl -n "$NS" describe pod -l app=app | sed -n '/^Events:/,$p' || true
+          kubectl -n "$NS" get events --sort-by=.lastTimestamp | tail -15 || true
