@@ -1,6 +1,6 @@
 FROM python:3.12-slim
 WORKDIR /app
-COPY app.py .
+COPY main.py .
 ARG APP_VERSION=dev
 ENV APP_VERSION=$APP_VERSION
 EXPOSE 8080
