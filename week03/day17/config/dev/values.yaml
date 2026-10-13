@@ -1,4 +1,4 @@
-replicaCount: 1
+replicaCount: "two"
 image:
   repository: nginxinc/nginx-unprivileged
 env:
