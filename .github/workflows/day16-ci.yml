@@ -1,0 +1,36 @@
+name: day16-ci
+
+# Lab ngày 16: pipeline nhỏ để luyện trace lỗi job -> step -> log -> root cause.
+# Chỉ chạy trên branch lab, không chạy trên main.
+on:
+  push:
+    branches: [feature/day16-ci-failure]
+
+jobs:
+  lint-manifest:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate manifest syntax
+        run: yq e '.' week03/day16/manifests/deployment.yaml > /dev/null
+
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build image
+        run: docker build --build-arg APP_VERSION=1.0.0 -t day16-app:${GITHUB_SHA::7} week03/day16/app
+
+  smoke:
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build image again for smoke test
+        run: docker build -t day16-app:smoke week03/day16/app
+      - name: Run container and call it
+        run: |
+          docker run -d --name app -e GREETING=hello -p 8080:8080 day16-app:smoke
+          sleep 3
+          docker logs app
+          curl -fsS http://localhost:8080/ > /dev/null
