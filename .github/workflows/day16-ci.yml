@@ -30,7 +30,7 @@ jobs:
         run: docker build -t day16-app:smoke week03/day16/app
       - name: Run container and call it
         run: |
-          docker run -d --name app -e GREETINGS=hello -p 8080:8080 day16-app:smoke
+          docker run -d --name app -e GREETING=hello -p 8080:8080 day16-app:smoke
           sleep 3
           docker logs app
           curl -fsS http://localhost:8080/ > /dev/null
