@@ -1,9 +1,9 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: day16-app
+    name: day16-app
   labels:
-    app: day16-app
+  app: day16-app
 spec:
   replicas: 2
   selector:
