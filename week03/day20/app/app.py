@@ -13,4 +13,15 @@ print("GREETING =", greeting)
 print("APP_VERSION =", os.environ.get("APP_VERSION"))
 print("PID =", os.getpid(), flush=True)
 
-HTTPServer(("", 8080), SimpleHTTPRequestHandler).serve_forever()
+
+class Handler(SimpleHTTPRequestHandler):
+    def do_GET(self):
+        if self.path == "/healthz":
+            self.send_response(200)
+            self.end_headers()
+            self.wfile.write(b"ok")
+            return
+        super().do_GET()
+
+
+HTTPServer(("", 8080), Handler).serve_forever()
