@@ -1,0 +1,57 @@
+name: day20-release
+
+# Lab ngày 20: release một thay đổi nhỏ end-to-end
+# build image tag sha -> CI bot sửa releases.yaml -> deploy chart -> verify.
+# Chỉ chạy trên branch lab, không chạy trên main.
+on:
+  push:
+    branches: [feature/day20-final-exercise]
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    env:
+      NS: dev
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build image (tag theo commit)
+        run: |
+          echo "TAG=sha-${GITHUB_SHA::7}" >> "$GITHUB_ENV"
+          docker build --build-arg APP_VERSION="$(cat week03/day20/VERSION)" \
+            -t "day06-app:sha-${GITHUB_SHA::7}" week03/day20/app
+
+      - name: Create kind cluster and load image
+        run: |
+          kind create cluster --name final --wait 120s
+          kind load docker-image "day06-app:$TAG" --name final
+
+      - name: CI bot - update releases.yaml
+        run: |
+          sed -i "s/tag: .*/tag: \"$TAG\"/" week03/day20/config/dev/releases.yaml
+          git diff -- week03/day20/config/dev/releases.yaml
+
+      - name: Deploy (helm upgrade --install)
+        run: |
+          helm upgrade --install app week02/day09/charts/app -n "$NS" --create-namespace \
+            -f week03/day20/config/dev/values.yaml -f week03/day20/config/dev/releases.yaml
+
+      - name: Verify rollout
+        run: kubectl -n "$NS" rollout status deploy/app --timeout=60s
+
+      - name: Verify version and traffic
+        run: |
+          kubectl -n "$NS" get pod -l app=app
+          PROBE=$(kubectl -n "$NS" get deploy app -o jsonpath='{.spec.template.spec.containers[0].readinessProbe.httpGet.path}')
+          echo "readiness path: $PROBE"
+          kubectl -n "$NS" logs deploy/app | grep "APP_VERSION = $(cat week03/day20/VERSION)"
+          kubectl -n "$NS" port-forward svc/app 8081:80 > pf.log 2>&1 &
+          sleep 3
+          curl -fsS -o /dev/null -w "/ -> HTTP %{http_code}\n" http://localhost:8081/
+          curl -fsS -o /dev/null -w "$PROBE -> HTTP %{http_code}\n" "http://localhost:8081$PROBE"
+
+      - name: Diagnose
+        if: failure()
+        run: |
+          kubectl -n "$NS" get deploy,rs,pod,endpointslice -o wide || true
+          kubectl -n "$NS" describe pod -l app=app | sed -n '/^Events:/,$p' || true
