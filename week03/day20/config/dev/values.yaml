@@ -1,0 +1,7 @@
+replicaCount: 1
+env:
+  GREETING: "hello from final exercise"
+readinessProbe:
+  httpGet:
+    path: /healthz
+    port: 8080
