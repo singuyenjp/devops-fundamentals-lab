@@ -17,6 +17,9 @@ spec:
       containers:
         - name: app
           image: day06-app:ci
+          env:
+            - name: GREETING
+              value: hello
           ports:
             - containerPort: 8080
           readinessProbe:
