@@ -1,0 +1,44 @@
+name: day18-runtime
+
+# Lab ngày 18: CI xanh (build image ok) nhưng deploy/runtime vẫn có thể lỗi.
+# Chỉ chạy trên branch lab, không chạy trên main.
+on:
+  push:
+    branches: [feature/day18-runtime-troubleshooting]
+
+jobs:
+  deploy-check:
+    runs-on: ubuntu-latest
+    env:
+      NS: runtime-lab
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: CI - build image
+        run: docker build -t day06-app:ci week02/day06
+
+      - name: Create kind cluster and load image
+        run: |
+          kind create cluster --name runtime --wait 120s
+          kind load docker-image day06-app:ci --name runtime
+
+      - name: Deploy manifests
+        run: |
+          kubectl create namespace "$NS"
+          kubectl apply -n "$NS" -f week03/day18/manifests/
+
+      - name: Wait for rollout
+        run: kubectl -n "$NS" rollout status deploy/app --timeout=45s
+
+      - name: Smoke test through Service
+        run: |
+          kubectl -n "$NS" port-forward svc/app 8081:80 > pf.log 2>&1 &
+          sleep 3
+          curl -fsS -o /dev/null -w "HTTP %{http_code}\n" http://localhost:8081/ || { cat pf.log; exit 1; }
+
+      - name: Diagnose
+        if: failure()
+        run: |
+          kubectl -n "$NS" get deploy,pod,svc,endpointslice -o wide || true
+          kubectl -n "$NS" describe pod -l app=app | sed -n '/^Events:/,$p' || true
+          kubectl -n "$NS" logs -l app=app --previous --tail=5 || true
