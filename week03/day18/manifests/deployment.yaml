@@ -20,9 +20,6 @@ spec:
           env:
             - name: GREETING
               value: hello
-          resources:
-            requests:
-              cpu: "64"
           ports:
             - containerPort: 8080
           readinessProbe:
